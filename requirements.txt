@@ -1,2 +1,3 @@
-html.parser
+Flask
+gunicorn
 python-dotenv
