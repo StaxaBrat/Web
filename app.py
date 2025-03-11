@@ -9,7 +9,11 @@ from dotenv import load_dotenv
 # Завантаження змінних середовища
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-GUILD_ID = int(os.getenv("DISCORD_GUILD_ID"))
+GUILD_ID = os.getenv("DISCORD_GUILD_ID")
+if not GUILD_ID:
+    raise ValueError("❌ Помилка: DISCORD_GUILD_ID не знайдено в змінних середовища! Додайте його в Render.")
+GUILD_ID = int(GUILD_ID)
+
 
 # Ініціалізація бота
 intents = discord.Intents.default()
