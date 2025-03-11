@@ -1,94 +1,114 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+# -*- coding: utf-8 -*-
+from flask import Flask, render_template, request, jsonify
 import sqlite3
+import os
 import discord
 from discord.ext import commands
-import os
 from dotenv import load_dotenv
 
 # Завантаження змінних середовища
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-GUILD_ID = int(os.getenv("DISCORD_GUILD_ID"))  # ID сервера
+GUILD_ID = int(os.getenv("DISCORD_GUILD_ID"))
 
-# Ініціалізація Flask
+# Ініціалізація бота
+intents = discord.Intents.default()
+intents.guilds = True
+intents.members = True
+bot = commands.Bot(command_prefix="!", intents=intents)
+
 app = Flask(__name__)
 
-# Підключення до бази
-def get_db_connection():
+# 📌 **Функція ініціалізації бази даних**
+def init_db():
     conn = sqlite3.connect('status.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        username TEXT UNIQUE,
+                        status TEXT
+                    )''')
+    conn.commit()
+    conn.close()
 
-# Головна сторінка: список співробітників
+init_db()
+
+# 📌 **Головна сторінка**
 @app.route('/')
 def index():
-    conn = get_db_connection()
-    employees = conn.execute("SELECT username, status FROM users").fetchall()
+    conn = sqlite3.connect('status.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT username, status FROM users")
+    users = cursor.fetchall()
     conn.close()
-    return render_template('index.html', employees=employees)
+    return render_template('index.html', users=users)
 
-# Оновлення статусу співробітника
+# 📌 **Оновлення статусу через сайт**
 @app.route('/update_status', methods=['POST'])
 def update_status():
     data = request.json
-    username = data['username']
-    new_status = data['status']
-
-    # Оновлюємо базу даних
-    conn = get_db_connection()
-    conn.execute("UPDATE users SET status = ? WHERE username = ?", (new_status, username))
+    username = data.get('username')
+    status = data.get('status')
+    
+    conn = sqlite3.connect('status.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO users (username, status) VALUES (?, ?) ON CONFLICT(username) DO UPDATE SET status = ?", 
+                   (username, status, status))
     conn.commit()
     conn.close()
 
-    # Надсилаємо оновлення в Discord
-    update_discord_status(username, new_status)
+    # Оновлення ролі в Discord
+    bot.loop.create_task(update_discord_role(username, status))
+    
+    return jsonify({'message': 'Статус оновлено!'}), 200
 
-    return jsonify({"message": "Статус оновлено!"})
-
-# Додавання нового співробітника
-@app.route('/add_employee', methods=['POST'])
-def add_employee():
-    data = request.json
-    username = data['username']
-
-    conn = get_db_connection()
-    conn.execute("INSERT INTO users (username, status) VALUES (?, ?)", (username, "Не на роботі"))
-    conn.commit()
-    conn.close()
-
-    return jsonify({"message": "Співробітника додано!"})
-
-# Функція для оновлення статусу в Discord
-def update_discord_status(username, new_status):
-    ROLE_MAPPING = {
-        "✅На роботі": "Працює",
-        "💤Відпочиває": "Відпочиває",
-        "❌Не на роботі": "Неактивний"
-    }
-
-    role_name = ROLE_MAPPING.get(new_status)
-    if not role_name:
+# 📌 **Оновлення ролі користувача в Discord**
+async def update_discord_role(username, status):
+    await bot.wait_until_ready()
+    guild = bot.get_guild(GUILD_ID)
+    if not guild:
+        print("❌ Сервер не знайдено!")
         return
 
-    bot = commands.Bot(command_prefix="!")
+    member = discord.utils.find(lambda m: m.name == username, guild.members)
+    if not member:
+        print(f"❌ Користувач {username} не знайдений у Discord!")
+        return
 
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        member = discord.utils.get(guild.members, name=username)
-        if member:
-            for role in ROLE_MAPPING.values():
-                existing_role = discord.utils.get(guild.roles, name=role)
-                if existing_role in member.roles:
-                    await member.remove_roles(existing_role)
+    role_mapping = {
+        "На роботі": "Працює",
+        "Відпочиває": "Відпочиває",
+        "Не на роботі": "Неактивний"
+    }
 
-            new_role = discord.utils.get(guild.roles, name=role_name)
-            if new_role:
-                await member.add_roles(new_role)
+    new_role_name = role_mapping.get(status)
+    if not new_role_name:
+        return
 
-        await bot.close()
+    for role in role_mapping.values():
+        existing_role = discord.utils.get(guild.roles, name=role)
+        if existing_role in member.roles:
+            await member.remove_roles(existing_role)
 
-    bot.run(TOKEN)
+    new_role = discord.utils.get(guild.roles, name=new_role_name)
+    if new_role:
+        await member.add_roles(new_role)
+        print(f"✅ Роль {new_role_name} видана {username}!")
+
+# 📌 **Запуск бота**
+@bot.event
+async def on_ready():
+    print(f'✅ Бот {bot.user.name} запущено!')
+
+import threading
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    threading.Thread(target=lambda: app.run(debug=True, use_reloader=False)).start()
+
+    import asyncio
+
+    async def main():
+        async with bot:
+            await bot.start(TOKEN)
+
+    asyncio.run(main())
