@@ -3,77 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚂 RailTech | Список співробітників📋</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            text-align: center;
-        }
-
-        table {
-            width: 50%;
-            margin: 20px auto;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            border: 1px solid black;
-            padding: 10px;
-        }
-
-        button {
-            padding: 5px 10px;
-            cursor: pointer;
-        }
-    </style>
+    <title>RailTech - Панель працівників</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
-    <h1>🚂 RailTech | Список співробітників📋</h1>
-    <table>
-        <tr>
-            <th>Ім'я</th>
-            <th>Статус</th>
-            <th>Дія</th>
-        </tr>
-        {% for employee in employees %}
-        <tr>
-            <td>{{ employee.username }}</td>
-            <td>{{ employee.status }}</td>
-            <td>
-                <button onclick="updateStatus('{{ employee.username }}', 'На роботі')">✅На роботі</button>
-                <button onclick="updateStatus('{{ employee.username }}', 'Відпочиває')">💤Відпочиває</button>
-                <button onclick="updateStatus('{{ employee.username }}', 'Не на роботі')">❌Не на роботі</button>
-            </td>
-        </tr>
-        {% endfor %}
-    </table>
+<body class="bg-light">
+    <div class="container mt-5">
+        <h1 class="text-center text-primary">🚆 RailTech - Управління статусами</h1>
+        <table class="table table-striped mt-4">
+            <thead class="table-dark">
+                <tr>
+                    <th>👤 Ім'я</th>
+                    <th>📌 Статус</th>
+                    <th>⚙️ Дія</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user[0] }}</td>
+                    <td>{{ user[1] }}</td>
+                    <td>
+                        <select class="form-select status-select" data-username="{{ user[0] }}">
+                            <option value="На роботі" {% if user[1]= ="На роботі" %}selected{% endif %}>🟢 На роботі</option>
+                            <option value="Відпочиває" {% if user[1]= ="Відпочиває" %}selected{% endif %}>🟡 Відпочиває</option>
+                            <option value="Не на роботі" {% if user[1]= ="Не на роботі" %}selected{% endif %}>🔴 Не на роботі</option>
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-    <h2>➕ Додати нового співробітника</h2>
-    <input type="text" id="new_employee" placeholder="Ім'я користувача">
-    <button onclick="addEmployee()">Додати</button>
-
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-        function updateStatus(username, status) {
-            fetch('/update_status', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: username, status: status })
-            }).then(response => response.json())
-                .then(data => location.reload());
-        }
+        $(document).ready(function () {
+            $('.status-select').change(function () {
+                var username = $(this).data('username');
+                var status = $(this).val();
 
-        function addEmployee() {
-            let username = document.getElementById("new_employee").value;
-            if (username) {
-                fetch('/add_employee', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: username })
-                }).then(response => response.json())
-                    .then(data => location.reload());
-            }
-        }
+                $.ajax({
+                    url: '/update_status',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ username: username, status: status }),
+                    success: function (response) {
+                        alert(response.message);
+                    }
+                });
+            });
+        });
     </script>
 </body>
 </html>
