@@ -107,12 +107,13 @@ async def on_ready():
 import threading
 
 if __name__ == '__main__':
-    threading.Thread(target=lambda: app.run(debug=True, use_reloader=False)).start()
-
     import asyncio
 
     async def main():
         async with bot:
             await bot.start(TOKEN)
 
-    asyncio.run(main())
+    loop = asyncio.get_event_loop()
+    loop.create_task(main())
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+
