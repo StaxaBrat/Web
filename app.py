@@ -5,6 +5,8 @@ import os
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+import asyncio
+import threading
 
 # Завантаження змінних середовища
 load_dotenv()
@@ -13,7 +15,6 @@ GUILD_ID = os.getenv("DISCORD_GUILD_ID")
 if not GUILD_ID:
     raise ValueError("❌ Помилка: DISCORD_GUILD_ID не знайдено в змінних середовища! Додайте його в Render.")
 GUILD_ID = int(GUILD_ID)
-
 
 # Ініціалізація бота
 intents = discord.Intents.default()
@@ -104,16 +105,13 @@ async def update_discord_role(username, status):
 async def on_ready():
     print(f'✅ Бот {bot.user.name} запущено!')
 
-import threading
-
-if __name__ == '__main__':
-    import asyncio
-
-    async def main():
+# 📌 **Запуск Flask і Discord-бота у двох потоках**
+if __name__ == "__main__":
+    async def run_bot():
         async with bot:
             await bot.start(TOKEN)
 
-    loop = asyncio.get_event_loop()
-    loop.create_task(main())
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+    bot_thread = threading.Thread(target=lambda: asyncio.run(run_bot()))
+    bot_thread.start()
 
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
