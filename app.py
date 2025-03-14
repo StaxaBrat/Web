@@ -105,8 +105,9 @@ async def update_discord_role(username, status):
 async def on_ready():
     print(f'✅ Бот {bot.user.name} запущено!')
 
-# 📌 **Запуск Flask і Discord-бота у двох потоках**
 if __name__ == "__main__":
+    import threading
+
     async def run_bot():
         async with bot:
             await bot.start(TOKEN)
@@ -114,4 +115,7 @@ if __name__ == "__main__":
     bot_thread = threading.Thread(target=lambda: asyncio.run(run_bot()))
     bot_thread.start()
 
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+    # Используем порт из Render (обязательно)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
+
